@@ -75,7 +75,7 @@ class Dataset:
         covariate_keys=None,
         smiles_key=None,
         degs_key="rank_genes_groups_cov",
-        pert_category="cov_drug_dose_name",
+        pert_category="cov_drug_name",
         split_key="split",
         use_drugs_idx=False,
     ):

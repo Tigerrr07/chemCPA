@@ -1,0 +1,58 @@
+seml:
+  executable: chemCPA/experiments_run.py
+  name: lincs_rdkit_hparam
+  output_dir: sweeps/logs
+  conda_environment: chemCPA
+  project_root_dir: .
+fixed:
+  model:
+      hparams:
+        dim: 64
+        dropout: 0.152121
+        dosers_width: 256
+        dosers_depth: 3
+        dosers_lr: 0.000406
+        dosers_wd: 8.179499e-08
+        autoencoder_width: 512
+        autoencoder_depth: 4
+        autoencoder_lr: 0.000406
+        autoencoder_wd: 8.179499e-08
+        adversary_width: 256
+        adversary_depth: 4
+        adversary_lr: 0.000251
+        adversary_wd: 3.320559e-07
+        adversary_steps: 2
+        reg_adversary: 12.439367
+        penalty_adversary: 2.014848
+        batch_size: 128
+        step_size_lr: 50
+        embedding_encoder_width: 512
+        embedding_encoder_depth: 4
+
+  model.append_ae_layer: False
+  model.enable_cpa_mode: False
+  model.load_pretrained: True
+  model.pretrained_model_path: project_folder/sweeps/checkpoints
+  model.pretrained_model_hashes:
+    rdkit: d26e192318c5fd9bc5196742b09294cf
+  model.additional_params.patience: 10 # patience for early stopping. Effective epochs: patience * checkpoint_freq.
+  model.additional_params.decoder_activation: ReLU # last layer of the decoder
+  model.additional_params.doser_type: amortized # non-linearity for doser function
+  model.additional_params.multi_task: false
+  model.embedding.directory: project_folder/embeddings # null will load the path from paths.py
+
+  model.embedding.model: rdkit
+  model.additional_params.seed: 1337
+
+
+  dataset.dataset_type: lincs
+  dataset.data_params.dataset_path: project_folder/datasets/lincs_full_smiles_sciplex_genes.h5ad # full path to the anndata dataset
+  dataset.data_params.perturbation_key: condition # stores name of the drug
+  dataset.data_params.pert_category: cov_drug_name # stores celltype_drugname_drugdose
+  dataset.data_params.dose_key: pert_dose # stores drug dose as a float
+  dataset.data_params.covariate_keys: cell_type # necessary field for cell types. Fill it with a dummy variable if no celltypes present.
+  dataset.data_params.smiles_key: canonical_smiles
+  dataset.data_params.degs_key: rank_genes_groups_cov # `uns` column name denoting the DEGs for each perturbation
+  dataset.data_params.split_key: random_split # necessary field for train, test, ood splits.
+  dataset.data_params.use_drugs_idx: True # If false, will use One-hot encoding instead
+

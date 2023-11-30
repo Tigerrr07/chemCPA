@@ -2,6 +2,8 @@ import json
 import logging
 import math
 import os
+import sys
+sys.path.append('/root/chemCPA')
 import time
 from collections import defaultdict
 from pathlib import Path
@@ -94,7 +96,7 @@ class ExperimentWrapper:
     @ex.capture(prefix="model")
     def init_drug_embedding(self, embedding: dict):
         self.embedding_model_type = embedding["model"]
-        device = "cuda" if torch.cuda.is_available() else "cpu"
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         if embedding["model"] != "vanilla":
             # ComPert will use the provided embedding, which is frozen during training
             self.drug_embeddings = get_chemical_representation(
@@ -120,7 +122,7 @@ class ExperimentWrapper:
         pretrained_model_hashes: dict,
     ):
 
-        device = "cuda" if torch.cuda.is_available() else "cpu"
+        device = device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         if load_pretrained:
             (
@@ -277,8 +279,8 @@ class ExperimentWrapper:
         save_checkpoints: bool,
         save_dir: str,
         run_eval_r2: bool = True,
-        run_eval_r2_sc: bool = True,
-        run_eval_logfold: bool = True,
+        run_eval_r2_sc: bool = False,
+        run_eval_logfold: bool = False,
     ):
 
         print(f"CWD: {os.getcwd()}")
@@ -293,7 +295,7 @@ class ExperimentWrapper:
         for epoch in range(num_epochs):
             # all items are initialized to 0.0
             epoch_training_stats = defaultdict(float)
-
+            self.autoencoder.train()
             for data in self.datasets["loader_tr"]:
                 if self.dataset.use_drugs_idx:
                     genes, drugs_idx, dosages, degs, covariates = (
@@ -364,7 +366,7 @@ class ExperimentWrapper:
                     #     self.autoencoder,
                     #     self.datasets["test_treated"],
                     # )
-                    self.autoencoder.train()
+                    # self.autoencoder.train()
                 test_score = (
                     np.mean(evaluation_stats["test"])
                     if evaluation_stats["test"]
@@ -380,6 +382,22 @@ class ExperimentWrapper:
                 test_score_is_nan = test_score is not None and math.isnan(test_score)
                 autoenc_early_stop = self.autoencoder.early_stopping(test_score)
                 stop = stop or autoenc_early_stop or test_score_is_nan
+
+                # print some stats for the evaluation
+                stats = {
+                    "epoch": epoch,
+                    "test_score": test_score,
+                    "evaluation_stats": evaluation_stats,
+                    "ellapsed_minutes": ellapsed_minutes,
+                    "test_score_is_nan": test_score_is_nan,
+                    "reconst_loss_is_nan": reconst_loss_is_nan,
+                    "autoenc_early_stop": autoenc_early_stop,
+                    "max_minutes_reached": ellapsed_minutes > max_minutes,
+                    "max_epochs_reached": epoch == num_epochs - 1,
+                }
+
+                logging.info("\n%s", pformat(stats, indent=4, width=1))
+
                 # we don't do disentanglement if the loss was NaN
                 # run_full_eval determines whether we run the full evaluate also during training, or only at the end
                 if (
@@ -404,18 +422,18 @@ class ExperimentWrapper:
                     self.autoencoder.history["stats_epoch"].append(epoch)
 
                 # print some stats for the evaluation
-                stats = {
-                    "epoch": epoch,
-                    "evaluation_stats": evaluation_stats,
-                    "ellapsed_minutes": ellapsed_minutes,
-                    "test_score_is_nan": test_score_is_nan,
-                    "reconst_loss_is_nan": reconst_loss_is_nan,
-                    "autoenc_early_stop": autoenc_early_stop,
-                    "max_minutes_reached": ellapsed_minutes > max_minutes,
-                    "max_epochs_reached": epoch == num_epochs - 1,
-                }
+                # stats = {
+                #     "epoch": epoch,
+                #     "evaluation_stats": evaluation_stats,
+                #     "ellapsed_minutes": ellapsed_minutes,
+                #     "test_score_is_nan": test_score_is_nan,
+                #     "reconst_loss_is_nan": reconst_loss_is_nan,
+                #     "autoenc_early_stop": autoenc_early_stop,
+                #     "max_minutes_reached": ellapsed_minutes > max_minutes,
+                #     "max_epochs_reached": epoch == num_epochs - 1,
+                # }
 
-                logging.info("\n%s", pformat(stats, indent=4, width=1))
+                # logging.info("\n%s", pformat(stats, indent=4, width=1))
 
                 # Cmp using == is fine, since if we improve we'll have updated this in `early_stopping`
                 improved_model = self.autoencoder.best_score == test_score

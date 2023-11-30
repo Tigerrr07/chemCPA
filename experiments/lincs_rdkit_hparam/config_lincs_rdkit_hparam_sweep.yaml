@@ -1,9 +1,9 @@
 # Config for hyperparameter-tuning chemCPA on L1000, using rdkit embeddings (part 1 of lincs_rdkit_hparam)
 seml:
-  executable: chemCPA/seml_sweep_icb.py
+  executable: chemCPA/experiments_run.py
   name: lincs_rdkit_hparam
   output_dir: sweeps/logs
-  conda_environment: chemical_CPA
+  conda_environment: chemCPA
   project_root_dir: ../..
 
 slurm:
@@ -22,18 +22,20 @@ fixed:
   profiling.run_profiler: False
   profiling.outdir: "./"
 
-  training.checkpoint_freq: 25 # checkpoint frequency to run evaluate, and maybe save checkpoint
+  training.checkpoint_freq: 1 # checkpoint frequency to run evaluate, and maybe save checkpoint
   training.num_epochs: 1500 # maximum epochs for training. One epoch updates either autoencoder, or adversary, depending on adversary_steps.
   training.max_minutes: 1200 # maximum computation time
   training.full_eval_during_train: False
   training.run_eval_disentangle: True # whether to calc the disentanglement loss when running the full eval
   training.save_checkpoints: True # checkpoints tend to be ~250MB large for LINCS.
-  training.save_dir: /storage/groups/ml01/projects/2021_chemicalCPA_leon.hetzel/sweeps/checkpoints
+  training.save_dir: project_folder/sweeps/checkpoints
   
   dataset.dataset_type: lincs
-  dataset.data_params.dataset_path: /storage/groups/ml01/projects/2021_chemicalCPA_leon.hetzel/datasets/lincs_full_smiles_sciplex_genes.h5ad # full path to the anndata dataset
-  dataset.data_params.perturbation_key: pert_id # stores name of the drug
-  dataset.data_params.pert_category: cov_drug_dose_name # stores celltype_drugname_drugdose
+  model.append_ae_layer: False
+  model.enable_cpa_mode: False
+  dataset.data_params.dataset_path: project_folder/datasets/lincs_full_smiles_sciplex_genes.h5ad # full path to the anndata dataset
+  dataset.data_params.perturbation_key: condition # stores name of the drug
+  dataset.data_params.pert_category: cov_drug_name # stores celltype_drugname_drugdose
   dataset.data_params.dose_key: pert_dose # stores drug dose as a float
   dataset.data_params.covariate_keys: cell_type # necessary field for cell types. Fill it with a dummy variable if no celltypes present.
   dataset.data_params.smiles_key: canonical_smiles
@@ -44,13 +46,16 @@ fixed:
   model.load_pretrained: False
   model.pretrained_model_path: null
   model.pretrained_model_hashes: null
-  model.additional_params.patience: 3 # patience for early stopping. Effective epochs: patience * checkpoint_freq.
-  model.additional_params.decoder_activation: linear # last layer of the decoder
+  model.additional_params.patience: 10 # patience for early stopping. Effective epochs: patience * checkpoint_freq.
+  model.additional_params.decoder_activation: ReLU # last layer of the decoder
   model.additional_params.doser_type: amortized # non-linearity for doser function
-  model.embedding.directory: null # null will load the path from paths.py
+  model.additional_params.multi_task: false
+  model.embedding.directory: project_folder/embeddings # null will load the path from paths.py
 
   model.embedding.model: rdkit
   model.additional_params.seed: 1337
+
+  model.hparams.reg_multi_task: 0
 
 random:
   samples: 25
@@ -134,6 +139,10 @@ random:
     type: loguniform
     min: 5
     max: 100
+  model.hparams.reg_adversary_cov:
+    type: loguniform
+    min: 3
+    max: 50
   model.hparams.penalty_adversary:
     type: loguniform
     min: 1

@@ -5,8 +5,8 @@ import numpy as np
 import pandas as pd
 import torch
 from torch import nn
-from torchmetrics import R2Score
-
+# from torchmetrics import R2Score
+from sklearn.metrics import r2_score
 import chemCPA.data
 from chemCPA.data import SubDataset
 from chemCPA.model import MLP, ComPert
@@ -25,7 +25,7 @@ def repeat_n(x, n):
     repetition dimension is axis 0
     """
     # copy tensor to device BEFORE replicating it n times
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     return x.to(device).view(1, -1).repeat(n, 1)
 
 
@@ -65,9 +65,10 @@ def compute_r2(y_true, y_pred):
     returns `-1` when `y_pred` contains nan values
     """
     y_pred = torch.clamp(y_pred, -3e12, 3e12)
-    metric = R2Score().to(y_true.device)
-    metric.update(y_pred, y_true)  # same as sklearn.r2_score(y_true, y_pred)
-    return metric.compute().item()
+    # metric = R2Score().to(y_true.device)
+    # metric.update(y_pred, y_true)  # same as sklearn.r2_score(y_true, y_pred)
+    score = r2_score(y_pred.cpu().numpy(), y_true.cpu().numpy())
+    return score
 
 
 def evaluate_logfold_r2(
@@ -129,7 +130,8 @@ def evaluate_logfold_r2(
             emb_drugs = repeat_n(ds_treated.drugs[idx_treated], n_idx_ctrl)
 
         # Could try moving the whole genes tensor to GPU once for further speedups (but more memory problems)
-        genes_ctrl = ds_ctrl.genes[idx_ctrl_all].to(device="cuda")
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        genes_ctrl = ds_ctrl.genes[idx_ctrl_all].to(device=device)
 
         genes_pred, _ = compute_prediction(
             autoencoder,
@@ -138,7 +140,7 @@ def evaluate_logfold_r2(
             emb_covs,
         )
         # Could try moving the whole genes tensor to GPU once for further speedups (but more memory problems)
-        genes_true = ds_treated.genes[idx_treated_all, :].to(device="cuda")
+        genes_true = ds_treated.genes[idx_treated_all, :].to(device)
 
         y_ctrl = genes_ctrl.mean(0)[idx_de]
         y_pred = genes_pred.mean(0)[idx_de]
@@ -193,8 +195,9 @@ def evaluate_disentanglement(autoencoder, data: chemCPA.data.Dataset):
     def compute_score(labels):
         unique_labels = set(labels)
         label_to_idx = {labels: idx for idx, labels in enumerate(unique_labels)}
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         labels_tensor = torch.tensor(
-            [label_to_idx[label] for label in labels], dtype=torch.long, device="cuda"
+            [label_to_idx[label] for label in labels], dtype=torch.long, device=device
         )
         assert normalized_basal.size(0) == len(labels_tensor)
         dataset = torch.utils.data.TensorDataset(normalized_basal, labels_tensor)
@@ -250,9 +253,7 @@ def evaluate_r2(autoencoder: ComPert, dataset: SubDataset, genes_control: torch.
 
     # dataset.pert_categories contains: 'celltype_perturbation_dose' info
     pert_categories_index = pd.Index(dataset.pert_categories, dtype="category")
-    for cell_drug_dose_comb, category_count in zip(
-        *np.unique(dataset.pert_categories, return_counts=True)
-    ):
+    for cell_drug_dose_comb, category_count in zip(*np.unique(dataset.pert_categories, return_counts=True)):
         if dataset.perturbation_key is None:
             break
 
@@ -300,7 +301,8 @@ def evaluate_r2(autoencoder: ComPert, dataset: SubDataset, genes_control: torch.
 
         # copies just the needed genes to GPU
         # Could try moving the whole genes tensor to GPU once for further speedups (but more memory problems)
-        y_true = dataset.genes[idx_all, :].to(device="cuda")
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        y_true = dataset.genes[idx_all, :].to(device=device)
 
         # true means and variances
         yt_m = y_true.mean(dim=0)
@@ -376,7 +378,8 @@ def evaluate_r2_sc(autoencoder: ComPert, dataset: SubDataset):
         bool_category = pert_categories_index.get_loc(cell_drug_dose_comb)
         idx_all = bool2idx(bool_category)
         idx = idx_all[0]
-        y_true = dataset.genes[idx_all, :].to(device="cuda")
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        y_true = dataset.genes[idx_all, :].to(device=device)
         n_obs = y_true.size(0)
 
         emb_covs = [repeat_n(cov[idx], n_obs) for cov in dataset.covariates]
@@ -549,5 +552,6 @@ def custom_collate(batch):
         else:
             # we move to CUDA here so that prefetching in the DataLoader already yields
             # ready-to-process CUDA tensors
-            concat_batch.append(torch.stack(samples, 0).to("cuda"))
+            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            concat_batch.append(torch.stack(samples, 0).to(device))
     return concat_batch

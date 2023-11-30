@@ -11,10 +11,10 @@ git-lfs-folders/*
 cpa_binaries.tar
 notebooks/*.pth
 embeddings/*/data/*
-
+chemCPA_models/
 # embeddings
 *.parquet
-
+*.pt
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

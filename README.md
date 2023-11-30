@@ -21,6 +21,26 @@ conda env create -f environment.yml
 python setup.py install -e .
 ```
 
+``` sh
+conda create -n chemCPA python=3.8 -y
+conda activate chemCPA 
+conda install scanpy=1.8.1 -c conda-forge -y
+conda install pytorch=1.12.0 cudatoolkit=10.2 -c pytorch -y
+conda install seml=0.3.5 sacred=0.8.4 -c conda-forge -y
+conda install rdkit=2021.09.2 -c conda-forge -y
+conda install pyarrow=5.0.0 -c conda-forge
+#conda install fastparquet=0.7.1 -c conda-forge -y
+#pip install ipywidgets # Preprocessing 1_lincs.ipynb
+
+# lincs_full.h5ad
+wget https://f003.backblazeb2.com/file/chemCPA-datasets/lincs_full.h5ad.gz # to datasets/
+wget https://dl.fbaipublicfiles.com/dlp/cpa_binaries.tar
+tar -xvf cpa_binaries.tar
+wget https://ftp.ncbi.nlm.nih.gov/geo/series/GSE92nnn/GSE92742/suppl/GSE92742%5FBroad%5FLINCS%5Fpert%5Finfo.txt.gz
+gzip -dk GSE92742_Broad_LINCS_pert_info.txt.gz
+
+```
+
 - `chemCPA/`: contains the code for the model, the data, and the training loop.
 - `embeddings`: There is one folder for each molecular embedding model we benchmarked. Each contains an `environment.yml` with dependencies. We generated the embeddings using the provided notebooks and saved them to disk, to load them during the main training loop.
 - `experiments`: Each folder contains a `README.md` with the experiment description, a `.yaml` file with the seml configuration, and a notebook to analyze the results.
